@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for the novel reader theme */
+
+@layer base {
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+}
+
+@layer components {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .prose {
+    line-height: 1.8;
+  }
+  
+  .prose p {
+    margin-bottom: 1.5em;
+    text-align: justify;
+  }
+  
+  .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    font-weight: 600;
+    margin-top: 2em;
+    margin-bottom: 1em;
+  }
+  
+  .font-reading {
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  
+  /* Theme variations */
+  .theme-sepia {
+    background-color: #f4f1e8;
+  }
+  
+  .theme-sepia .prose {
+    color: #5c4b37;
+  }
+  
+  .theme-dark {
+    background-color: #1a1a1a;
+    color: #e5e5e5;
+  }
+  
+  .theme-dark .prose {
+    color: #e5e5e5;
+  }
+  
+  .theme-dark .bg-white {
+    background-color: #2d2d2d !important;
+  }
+  
+  .theme-dark .text-gray-900 {
+    color: #e5e5e5 !important;
+  }
+  
+  .theme-dark .border-gray-200 {
+    border-color: #404040 !important;
+  }
+}
+
+@layer utilities {
+  .container {
+    max-width: 1200px;
+  }
+  
+  .aspect-\[3\/4\] {
+    aspect-ratio: 3/4;
+  }
+  
+  .transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .prose {
+    font-size: 12pt;
+    line-height: 1.6;
+  }
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .prose {
+    font-size: 16px;
+  }
+  
+  .grid {
+    gap: 1rem;
+  }
+}
