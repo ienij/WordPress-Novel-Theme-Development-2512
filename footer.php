@@ -1,74 +1,78 @@
 <footer class="bg-black text-white py-12">
     <div class="container mx-auto px-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <!-- About Section -->
-            <div class="col-span-2">
+            <div>
                 <h3 class="text-xl font-bold mb-4">
+                    <i class="fas fa-book mr-2"></i>
                     <?php bloginfo('name'); ?>
                 </h3>
                 <p class="text-gray-300 mb-4">
-                    Discover and read the latest translated web novels from around the world. 
-                    Join our community of readers and translators.
+                    Discover and read the latest translated web novels from around the world. Join our community of readers and translators.
                 </p>
                 <div class="flex space-x-4">
                     <a href="#" class="text-gray-300 hover:text-white">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
-                        </svg>
+                        <i class="fab fa-twitter text-xl"></i>
                     </a>
                     <a href="#" class="text-gray-300 hover:text-white">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 4.21a4.22 4.22 0 0 1-1.93.07 4.28 4.28 0 0 0 4 2.98 8.521 8.521 0 0 1-5.33 1.84c-.34 0-.68-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z"/>
-                        </svg>
+                        <i class="fab fa-facebook text-xl"></i>
                     </a>
                     <a href="#" class="text-gray-300 hover:text-white">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                        </svg>
+                        <i class="fab fa-discord text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-300 hover:text-white">
+                        <i class="fab fa-reddit text-xl"></i>
                     </a>
                 </div>
             </div>
 
-            <!-- Quick Links -->
+            <!-- Support -->
             <div>
-                <h4 class="text-lg font-semibold mb-4">Quick Links</h4>
+                <h4 class="text-lg font-semibold mb-4">
+                    <i class="fas fa-life-ring mr-2"></i>
+                    Support
+                </h4>
                 <ul class="space-y-2">
-                    <li><a href="<?php echo home_url(); ?>" class="text-gray-300 hover:text-white">Home</a></li>
-                    <li><a href="<?php echo get_post_type_archive_link('novel'); ?>" class="text-gray-300 hover:text-white">All Novels</a></li>
-                    <li><a href="#" class="text-gray-300 hover:text-white">Popular</a></li>
-                    <li><a href="#" class="text-gray-300 hover:text-white">Recently Updated</a></li>
-                    <li><a href="#" class="text-gray-300 hover:text-white">Completed</a></li>
+                    <li><a href="#" class="text-gray-300 hover:text-white"><i class="fas fa-question-circle mr-2"></i>Help Center</a></li>
+                    <li><a href="#" class="text-gray-300 hover:text-white"><i class="fas fa-envelope mr-2"></i>Contact Us</a></li>
+                    <li><a href="#" class="text-gray-300 hover:text-white"><i class="fas fa-bug mr-2"></i>Report Issue</a></li>
+                    <li><a href="#" class="text-gray-300 hover:text-white"><i class="fas fa-shield-alt mr-2"></i>Privacy Policy</a></li>
+                    <li><a href="#" class="text-gray-300 hover:text-white"><i class="fas fa-file-contract mr-2"></i>Terms of Service</a></li>
                 </ul>
             </div>
 
-            <!-- Support -->
+            <!-- Statistics -->
             <div>
-                <h4 class="text-lg font-semibold mb-4">Support</h4>
-                <ul class="space-y-2">
-                    <li><a href="#" class="text-gray-300 hover:text-white">Help Center</a></li>
-                    <li><a href="#" class="text-gray-300 hover:text-white">Contact Us</a></li>
-                    <li><a href="#" class="text-gray-300 hover:text-white">Report Issue</a></li>
-                    <li><a href="#" class="text-gray-300 hover:text-white">Privacy Policy</a></li>
-                    <li><a href="#" class="text-gray-300 hover:text-white">Terms of Service</a></li>
-                </ul>
+                <h4 class="text-lg font-semibold mb-4">
+                    <i class="fas fa-chart-bar mr-2"></i>
+                    Site Statistics
+                </h4>
+                <div class="space-y-2">
+                    <?php
+                    $novel_count = wp_count_posts('novel')->publish;
+                    $chapter_count = wp_count_posts('chapter')->publish;
+                    $user_count = count_users()['total_users'];
+                    ?>
+                    <div class="text-gray-300">
+                        <i class="fas fa-book mr-2"></i>
+                        <?php echo number_format($novel_count); ?> Novels
+                    </div>
+                    <div class="text-gray-300">
+                        <i class="fas fa-file-alt mr-2"></i>
+                        <?php echo number_format($chapter_count); ?> Chapters
+                    </div>
+                    <div class="text-gray-300">
+                        <i class="fas fa-users mr-2"></i>
+                        <?php echo number_format($user_count); ?> Members
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="border-t border-gray-700 mt-8 pt-8">
-            <div class="flex flex-col md:flex-row justify-between items-center">
-                <p class="text-gray-300 text-sm">
-                    &copy; <?php echo date('Y'); ?> <?php bloginfo('name'); ?>. All rights reserved.
-                </p>
-                
-                <?php
-                wp_nav_menu(array(
-                    'theme_location' => 'footer',
-                    'container' => false,
-                    'menu_class' => 'flex space-x-6 text-sm',
-                    'fallback_cb' => false
-                ));
-                ?>
-            </div>
+        <div class="border-t border-gray-700 mt-8 pt-8 text-center">
+            <p class="text-gray-300 text-sm">
+                &copy; <?php echo date('Y'); ?> <?php bloginfo('name'); ?>. All rights reserved.
+            </p>
         </div>
     </div>
 </footer>
@@ -77,9 +81,15 @@
 
 <script>
 // Mobile menu toggle
-document.getElementById('mobile-menu-button').addEventListener('click', function() {
+document.addEventListener('DOMContentLoaded', function() {
+    const mobileMenuButton = document.getElementById('mobile-menu-button');
     const mobileMenu = document.getElementById('mobile-menu');
-    mobileMenu.classList.toggle('hidden');
+    
+    if (mobileMenuButton && mobileMenu) {
+        mobileMenuButton.addEventListener('click', function() {
+            mobileMenu.classList.toggle('hidden');
+        });
+    }
 });
 </script>
 

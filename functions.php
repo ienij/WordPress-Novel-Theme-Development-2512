@@ -27,16 +27,19 @@ add_action('after_setup_theme', 'novelreader_setup');
 // Enqueue scripts and styles
 function novelreader_scripts() {
     wp_enqueue_style('novelreader-style', get_template_directory_uri() . '/assets/css/style.css', array(), '1.0.0');
+    wp_enqueue_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css', array(), '6.4.0');
     wp_enqueue_script('novelreader-main', get_template_directory_uri() . '/assets/js/main.js', array('jquery'), '1.0.0', true);
     wp_enqueue_script('novelreader-reading-settings', get_template_directory_uri() . '/assets/js/reading-settings.js', array(), '1.0.0', true);
     wp_enqueue_script('novelreader-notifications', get_template_directory_uri() . '/assets/js/notifications.js', array(), '1.0.0', true);
+    wp_enqueue_script('novelreader-bookmarks', get_template_directory_uri() . '/assets/js/bookmark-system.js', array(), '1.0.0', true);
 
     // Localize script for AJAX
     wp_localize_script('novelreader-main', 'novelreader_ajax', array(
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('novelreader_nonce'),
         'user_logged_in' => is_user_logged_in(),
-        'chapter_id' => is_singular('chapter') ? get_the_ID() : null
+        'chapter_id' => is_singular('chapter') ? get_the_ID() : null,
+        'login_url' => wp_login_url(get_permalink())
     ));
 }
 add_action('wp_enqueue_scripts', 'novelreader_scripts');
@@ -82,7 +85,7 @@ function novelreader_register_post_types() {
         'public' => true,
         'has_archive' => false,
         'rewrite' => array('slug' => 'chapter'),
-        'supports' => array('title', 'editor', 'comments'),
+        'supports' => array('editor', 'comments'), // Removed title support
         'menu_icon' => 'dashicons-media-document',
         'show_in_rest' => true
     ));
@@ -93,8 +96,8 @@ add_action('init', 'novelreader_register_post_types');
 function novelreader_register_meta_fields() {
     // Novel meta fields
     $novel_meta_fields = array(
-        'raw_name', 'raw_source', 'alternate_name', 'novel_author', 
-        'status_in_coo', 'translator', 'translation_status', 'update_schedule'
+        'raw_name', 'raw_source', 'novel_author', 
+        'status_in_coo', 'translator', 'translation_status', 'update_schedule', 'featured'
     );
     
     foreach ($novel_meta_fields as $field) {
@@ -113,7 +116,8 @@ function novelreader_register_meta_fields() {
         'volume' => 'string',
         'editor' => 'string',
         'lock_chapter' => 'boolean',
-        'lock_expiration_date' => 'string'
+        'lock_expiration_date' => 'string',
+        'chapter_price' => 'number'
     );
     
     foreach ($chapter_meta_fields as $field => $type) {
@@ -163,24 +167,6 @@ function novelreader_save_user_meta_fields($user_id) {
 add_action('personal_options_update', 'novelreader_save_user_meta_fields');
 add_action('edit_user_profile_update', 'novelreader_save_user_meta_fields');
 
-// Custom rewrite rules for chapter permalinks
-function novelreader_rewrite_rules() {
-    add_rewrite_rule(
-        '^([^/]+)/chapter-([0-9]+)/?$',
-        'index.php?post_type=chapter&novel_slug=$matches[1]&chapter_number=$matches[2]',
-        'top'
-    );
-}
-add_action('init', 'novelreader_rewrite_rules');
-
-// Add query vars
-function novelreader_query_vars($vars) {
-    $vars[] = 'novel_slug';
-    $vars[] = 'chapter_number';
-    return $vars;
-}
-add_filter('query_vars', 'novelreader_query_vars');
-
 // Get novel chapters
 function novelreader_get_novel_chapters($novel_id, $limit = -1) {
     return get_posts(array(
@@ -190,25 +176,122 @@ function novelreader_get_novel_chapters($novel_id, $limit = -1) {
         'posts_per_page' => $limit,
         'orderby' => 'meta_value_num',
         'meta_key' => 'chapter_number',
-        'order' => 'ASC'
+        'order' => 'ASC',
+        'post_status' => 'publish'
     ));
 }
 
-// Check if chapter is locked
+// Check if chapter is locked - FIXED VERSION
 function novelreader_is_chapter_locked($chapter_id) {
     $is_locked = get_post_meta($chapter_id, 'lock_chapter', true);
+    
+    // If not locked, return false
+    if (!$is_locked || $is_locked !== '1') {
+        return false;
+    }
+    
+    // Check if user has already purchased this chapter
+    if (is_user_logged_in()) {
+        $user_id = get_current_user_id();
+        $purchased_chapters = get_user_meta($user_id, 'purchased_chapters', true);
+        
+        if (is_array($purchased_chapters) && in_array($chapter_id, $purchased_chapters)) {
+            return false; // User has purchased, so not locked for them
+        }
+        
+        // Check if user is admin or editor
+        if (current_user_can('edit_posts')) {
+            return false; // Admins and editors can access locked chapters
+        }
+        
+        // Check if user is the translator
+        $novel_id = get_post_meta($chapter_id, 'novel_id', true);
+        if ($novel_id) {
+            $translator_id = get_post_meta($novel_id, 'translator', true);
+            if ($translator_id && $translator_id == $user_id) {
+                return false; // Translator can access their own locked chapters
+            }
+        }
+    }
+    
+    // Check expiration date
     $expiration = get_post_meta($chapter_id, 'lock_expiration_date', true);
-    
-    if (!$is_locked) {
-        return false;
-    }
-    
     if ($expiration && strtotime($expiration) < current_time('timestamp')) {
+        // Chapter lock has expired, remove the lock
+        update_post_meta($chapter_id, 'lock_chapter', '0');
         return false;
     }
     
-    return true;
+    return true; // Chapter is locked
 }
+
+// Custom permalinks for chapters
+function novelreader_chapter_permalink($permalink, $post) {
+    if ($post->post_type == 'chapter') {
+        $novel_id = get_post_meta($post->ID, 'novel_id', true);
+        $chapter_number = get_post_meta($post->ID, 'chapter_number', true);
+        
+        if ($novel_id && $chapter_number) {
+            $novel = get_post($novel_id);
+            if ($novel) {
+                return home_url('/novel/' . $novel->post_name . '/chapter-' . $chapter_number . '/');
+            }
+        }
+    }
+    return $permalink;
+}
+add_filter('post_link', 'novelreader_chapter_permalink', 10, 2);
+add_filter('post_type_link', 'novelreader_chapter_permalink', 10, 2);
+
+// Add rewrite rules for custom chapter permalinks
+function novelreader_add_rewrite_rules() {
+    add_rewrite_rule(
+        '^novel/([^/]+)/chapter-([0-9]+)/?$',
+        'index.php?post_type=chapter&novel_slug=$matches[1]&chapter_number=$matches[2]',
+        'top'
+    );
+}
+add_action('init', 'novelreader_add_rewrite_rules');
+
+// Add query vars
+function novelreader_query_vars($vars) {
+    $vars[] = 'novel_slug';
+    $vars[] = 'chapter_number';
+    return $vars;
+}
+add_filter('query_vars', 'novelreader_query_vars');
+
+// Handle custom chapter queries
+function novelreader_parse_request($wp) {
+    if (isset($wp->query_vars['novel_slug']) && isset($wp->query_vars['chapter_number'])) {
+        $novel = get_page_by_path($wp->query_vars['novel_slug'], OBJECT, 'novel');
+        
+        if ($novel) {
+            $chapters = get_posts(array(
+                'post_type' => 'chapter',
+                'meta_query' => array(
+                    array(
+                        'key' => 'novel_id',
+                        'value' => $novel->ID
+                    ),
+                    array(
+                        'key' => 'chapter_number',
+                        'value' => $wp->query_vars['chapter_number']
+                    )
+                ),
+                'posts_per_page' => 1
+            ));
+            
+            if ($chapters) {
+                $wp->query_vars['post_type'] = 'chapter';
+                $wp->query_vars['p'] = $chapters[0]->ID;
+                unset($wp->query_vars['novel_slug']);
+                unset($wp->query_vars['chapter_number']);
+            }
+        }
+    }
+}
+add_action('parse_request', 'novelreader_parse_request');
 
 // Get latest novel updates
 function novelreader_get_latest_updates($limit = 10) {
@@ -219,9 +302,6 @@ function novelreader_get_latest_updates($limit = 10) {
         'order' => 'DESC'
     ));
 }
-
-// Include AJAX handlers
-require_once get_template_directory() . '/inc/ajax-handlers.php';
 
 // Enhanced search functionality
 function novelreader_search_filter($query) {
@@ -245,7 +325,7 @@ function novelreader_breadcrumbs() {
     if (is_home() || is_front_page()) return;
     
     echo '<nav class="breadcrumbs text-sm text-gray-600 mb-4">';
-    echo '<a href="' . home_url() . '" class="hover:text-gray-900">Home</a>';
+    echo '<a href="' . home_url() . '" class="hover:text-gray-900"><i class="fas fa-home"></i> Home</a>';
     
     if (is_singular('novel')) {
         echo ' <span class="mx-2">/</span> ';
@@ -260,7 +340,7 @@ function novelreader_breadcrumbs() {
             echo ' <span class="mx-2">/</span> ';
             echo '<a href="' . get_permalink($novel_id) . '" class="hover:text-gray-900">' . get_the_title($novel_id) . '</a>';
             echo ' <span class="mx-2">/</span> ';
-            echo '<span class="text-gray-900">' . get_the_title() . '</span>';
+            echo '<span class="text-gray-900">Chapter ' . get_post_meta(get_the_ID(), 'chapter_number', true) . '</span>';
         }
     } elseif (is_post_type_archive('novel')) {
         echo ' <span class="mx-2">/</span> ';
@@ -274,49 +354,6 @@ function novelreader_breadcrumbs() {
     }
     
     echo '</nav>';
-}
-
-// Add social sharing buttons
-function novelreader_social_share_buttons($url = '', $title = '') {
-    if (empty($url)) $url = get_permalink();
-    if (empty($title)) $title = get_the_title();
-    
-    $encoded_url = urlencode($url);
-    $encoded_title = urlencode($title);
-    
-    $share_links = array(
-        'twitter' => 'https://twitter.com/intent/tweet?url=' . $encoded_url . '&text=' . $encoded_title,
-        'facebook' => 'https://www.facebook.com/sharer/sharer.php?u=' . $encoded_url,
-        'reddit' => 'https://reddit.com/submit?url=' . $encoded_url . '&title=' . $encoded_title,
-        'telegram' => 'https://t.me/share/url?url=' . $encoded_url . '&text=' . $encoded_title
-    );
-    
-    echo '<div class="social-share flex items-center space-x-4 mt-6 pt-6 border-t border-gray-200">';
-    echo '<span class="text-sm font-medium text-gray-700">Share:</span>';
-    
-    foreach ($share_links as $platform => $link) {
-        echo '<a href="' . $link . '" target="_blank" rel="noopener" class="text-gray-600 hover:text-gray-900 transition-colors">';
-        echo '<span class="sr-only">Share on ' . ucfirst($platform) . '</span>';
-        
-        switch ($platform) {
-            case 'twitter':
-                echo '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>';
-                break;
-            case 'facebook':
-                echo '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>';
-                break;
-            case 'reddit':
-                echo '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>';
-                break;
-            case 'telegram':
-                echo '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>';
-                break;
-        }
-        
-        echo '</a>';
-    }
-    
-    echo '</div>';
 }
 
 // Add novel rating system
@@ -334,9 +371,7 @@ function novelreader_novel_rating($novel_id = null) {
     
     for ($i = 1; $i <= 5; $i++) {
         $filled = $i <= round($average_rating);
-        echo '<svg class="w-4 h-4 ' . ($filled ? 'text-yellow-400' : 'text-gray-300') . '" fill="currentColor" viewBox="0 0 20 20">';
-        echo '<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>';
-        echo '</svg>';
+        echo '<i class="' . ($filled ? 'fas' : 'far') . ' fa-star text-yellow-400"></i>';
     }
     
     echo '</div>';
@@ -407,39 +442,94 @@ function novelreader_comment_callback($comment, $args, $depth) {
     <?php
 }
 
-// Add custom dashboard widgets for translators
-function novelreader_add_dashboard_widgets() {
-    if (current_user_can('edit_posts')) {
-        wp_add_dashboard_widget(
-            'novelreader_stats',
-            'Novel Statistics',
-            'novelreader_stats_widget'
+// Create notification system
+function novelreader_create_notification($user_id, $type, $title, $message, $url = '') {
+    $notifications = get_user_meta($user_id, 'notifications', true);
+    if (!is_array($notifications)) {
+        $notifications = array();
+    }
+    
+    $notification = array(
+        'id' => uniqid(),
+        'type' => $type,
+        'title' => $title,
+        'message' => $message,
+        'url' => $url,
+        'timestamp' => current_time('timestamp'),
+        'read' => false
+    );
+    
+    array_unshift($notifications, $notification);
+    
+    // Keep only latest 50 notifications
+    if (count($notifications) > 50) {
+        $notifications = array_slice($notifications, 0, 50);
+    }
+    
+    update_user_meta($user_id, 'notifications', $notifications);
+    
+    return $notification;
+}
+
+// Trigger notifications when new chapters are published
+function novelreader_notify_chapter_published($post_id) {
+    $post = get_post($post_id);
+    
+    if ($post->post_type !== 'chapter' || $post->post_status !== 'publish') {
+        return;
+    }
+    
+    $novel_id = get_post_meta($post_id, 'novel_id', true);
+    if (!$novel_id) return;
+    
+    // Get all users who bookmarked this novel
+    $users = get_users(array(
+        'meta_query' => array(
+            array(
+                'key' => 'bookmarked_novels',
+                'value' => serialize(strval($novel_id)),
+                'compare' => 'LIKE'
+            )
+        )
+    ));
+    
+    $novel_title = get_the_title($novel_id);
+    $chapter_number = get_post_meta($post_id, 'chapter_number', true);
+    $chapter_url = get_permalink($post_id);
+    
+    foreach ($users as $user) {
+        novelreader_create_notification(
+            $user->ID,
+            'chapter_update',
+            'New Chapter Available',
+            "New chapter published: {$novel_title} - Chapter {$chapter_number}",
+            $chapter_url
         );
     }
 }
-add_action('wp_dashboard_setup', 'novelreader_add_dashboard_widgets');
+add_action('publish_chapter', 'novelreader_notify_chapter_published');
 
-function novelreader_stats_widget() {
-    $user_id = get_current_user_id();
-    
-    $novel_count = count(get_posts(array(
-        'post_type' => 'novel',
-        'meta_key' => 'translator',
-        'meta_value' => $user_id,
-        'posts_per_page' => -1
-    )));
-    
-    $chapter_count = count(get_posts(array(
-        'post_type' => 'chapter',
-        'author' => $user_id,
-        'posts_per_page' => -1
-    )));
-    
-    echo '<div class="novelreader-stats">';
-    echo '<p><strong>Your Novels:</strong> ' . $novel_count . '</p>';
-    echo '<p><strong>Your Chapters:</strong> ' . $chapter_count . '</p>';
-    echo '<p><a href="' . admin_url('edit.php?post_type=novel') . '">Manage Novels</a></p>';
-    echo '<p><a href="' . admin_url('edit.php?post_type=chapter') . '">Manage Chapters</a></p>';
-    echo '</div>';
+// Include additional functionality
+require_once get_template_directory() . '/inc/ajax-handlers.php';
+require_once get_template_directory() . '/inc/meta-boxes.php';
+
+// Custom login redirect
+function novelreader_login_redirect($redirect_to, $request, $user) {
+    if (isset($user->roles) && is_array($user->roles)) {
+        if (in_array('administrator', $user->roles)) {
+            return admin_url();
+        } else {
+            return home_url('/account/');
+        }
+    }
+    return $redirect_to;
 }
+add_filter('login_redirect', 'novelreader_login_redirect', 10, 3);
+
+// Flush rewrite rules on theme activation
+function novelreader_flush_rewrite_rules() {
+    novelreader_add_rewrite_rules();
+    flush_rewrite_rules();
+}
+add_action('after_switch_theme', 'novelreader_flush_rewrite_rules');
 ?>
